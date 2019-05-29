@@ -78,13 +78,13 @@ def find_x_of_y_is_z(parced):
             yId = get_id(y, "object")
             zId = get_id(z, "object")
             for numi, i in enumerate(xId):
-                if (i == depth):
+                if (numi == depth):
                     break
                 for numj, j in enumerate(yId):
-                    if (j == depth):
+                    if (numj == depth):
                         break
                     for numk, k in enumerate(zId):
-                        if (k == depth):
+                        if (numk == depth):
                             break
                         if (not ((i == "" and j == "") or (i == "" and k == "") or (j == "" and k == ""))):
                             query = construct_query_xyz(i, j, k)
