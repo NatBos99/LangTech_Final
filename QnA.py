@@ -3,6 +3,7 @@ import sys
 import requests
 import re
 import spacy
+from XofYisZ import *
 
 nlp = spacy.load('en')
 
@@ -31,7 +32,7 @@ def get_results(xstring, ystring):
 			x = result['id']
 			data = get_data(x,y)
 			if data['results']['bindings'] != []:
-				print(data)
+				#print(data)
 				return data
 	return ('no results')
 
@@ -119,7 +120,7 @@ def findAnswerCase_3(parse):
 	print('Incomplete Code') 
 
 def findAnswerCase_4(parse):
-	print('Incomplete Code') 
+	return find_x_of_y_is_z(parse)
 	
 ########################################################################
 
@@ -127,8 +128,8 @@ def find_answer(question):
 	
 	parse = nlp(question)
 	
-	for w in parse:
-		print("\t \t".join((w.text, w.lemma_, w.pos_, w.tag_, w.dep_,w.head.lemma_)))
+	#for w in parse:
+		#print("\t \t".join((w.text, w.lemma_, w.pos_, w.tag_, w.dep_,w.head.lemma_)))
 
 	answer = []
 	#Yes/No Questions
@@ -143,13 +144,9 @@ def find_answer(question):
 	elif isCase_3(question) == True:
 		answer = findAnswerCase_3(parse)
 	
-	#What/Who/Where/When/How Questions
-	elif isCase_4(question) == True:
-		answer = findAnswerCase_4(parse)
-	
-	#Fail Case
+	#Fail Case, check for x of y is z questions (What/Who/Where/When/How Questions)
 	else:
-		answer.append('Could not find answer')
+		answer = findAnswerCase_4(parse)
 		
 	print_answer(answer)
 		
