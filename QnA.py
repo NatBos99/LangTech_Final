@@ -128,8 +128,8 @@ def find_answer(question):
 	
 	parse = nlp(question)
 	
-	#for w in parse:
-		#print("\t \t".join((w.text, w.lemma_, w.pos_, w.tag_, w.dep_,w.head.lemma_)))
+	for w in parse:
+		print("\t \t".join((w.text, w.lemma_, w.pos_, w.tag_, w.dep_,w.head.lemma_)))
 
 	answer = []
 	#Yes/No Questions
@@ -148,7 +148,7 @@ def find_answer(question):
 	else:
 		answer = findAnswerCase_4(parse)
 		
-	print_answer(answer)
+	print(answer)
 		
 
 def main (argv):
