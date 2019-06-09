@@ -260,7 +260,7 @@ def highest_lowest_questions_get_x_and_y(parse):
 
 
 def find_how_xyz_format(parsed, h, iteration):
-    # When was y x(verb)?
+    
 
     # Find x
     xObject = h.head.head
@@ -305,6 +305,31 @@ def find_when_xyz_format(parsed, h):
 
     return [x, y, z]
 
+def find_possessive_xyz_format(parsed, h, propDate):
+    # Find x
+    xObject = h.head.head
+    x = ""
+    if (not xObject.pos_ == "PRON"):
+        x = find_compound(parsed, h, xObject, False)  # Find anything that might need to be included in x
+        if(propDate):
+            x = "date of" + x
+    
+    # Find y
+    yObject = h.head
+    y = ""
+    if (not yObject.pos_ == "PRON"):
+        y = find_compound(parsed, h, yObject, False)  # Find anything that might need to be included in y
+
+    # Find z
+    possibleIs = xObject.head
+    z = ""
+    if (possibleIs.lemma_ == "be"):
+        for i in parsed:
+            if ((i.pos_ == "NOUN" or i.pos_ == "PROPN") and i.head == possibleIs and not i == xObject):
+                zObject = i
+                z = find_compound(parsed, h, zObject, False)  # Find anything that might need to be included in z
+                break
+    return [x, y, z]
 
 def find_standard_xyz_format(parsed, h, propDate):
     # Find x
@@ -493,7 +518,7 @@ def run_specific_query(query):
 
 def find_xyz_answer(x, y, z):
     answer = ""
-    depth = 5  # Increase for better chance of finding obscure answers, decrease for slightly better performance
+    depth = 5  # Increase for better chance of finding obscure answers, decrease for slightly better performance and bigger chance to find less obscure answers
     xId = get_id(x, "property")
     yId = get_id(y, "object")
     zId = get_id(z, "object")
@@ -640,6 +665,7 @@ def findFailCase(parsed):
     for numh in range(len(parsed)-1, -1, -1):
         h = parsed[numh]
         print (h.lemma_)
+        # Find standard case: z is (the) x of y
         if (h.dep_ == "prep" and h.lemma_ == "of"):
             li = find_standard_xyz_format(parsed, h, False)
             x = li[0]
@@ -650,9 +676,22 @@ def findFailCase(parsed):
             answer = find_xyz_answer(x, y, z)
             if (not answer == "No answer was found"):
                 return answer
+        
+        # Find questions using the possessive ("'s")
+        if (h.tag_ == "POS"):
+            print("possessive!")
+            li = find_possessive_xyz_format(parsed, h, False)
+            x = li[0]
+            y = li[1]
+            z = li[2]
 
+            print ("the %s of %s is %s" %(x, y, z))
+            answer = find_xyz_answer(x, y, z)
+            if (not answer == "No answer was found"):
+                return answer
+        
+        # Find questions starting with "when"
         if (h.head.pos_ == "VERB" and h.lemma_ == "when"):
-            print ("Hoera")
             if (h.head.dep_ == "ROOT"):
                 li = find_standard_xyz_format(parsed, h, False)
                 x = li[0]
@@ -683,7 +722,7 @@ def findFailCase(parsed):
             answer = find_xyz_answer(x, y, z)
             if (not answer == "No answer was found"):
                 return answer
-
+    # Find questions starting with "how"
     if (h.head.pos_ == "VERB" and h.lemma_ == "how"):
         for i in range(0, 1, 2):
             li = find_how_xyz_format(parsed, h, i)
