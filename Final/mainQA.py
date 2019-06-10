@@ -288,14 +288,14 @@ def find_when_xyz_format(parsed, h):
     # When was y x(verb)?
 
     # Find x
-    xObject = h.head.head
+    xObject = h.head
     x = find_compound(parsed, h, xObject, True)  # Find anything that might need to be included in x
     x = "date of "+x
 
     # Find y
     y = ""
     for i in parsed:
-        if (i.head == xObject and i.dep_ == "nsubj"):
+        if (i.head == xObject and (i.dep_ == "nsubj" or i.dep_ == "nsubjpass")):
             yObject = i
             y = find_compound(parsed, h, yObject, True)  # Find anything that might need to be included in y
             break
@@ -413,6 +413,8 @@ def verb_to_noun(verb):
         return "birth"
     if (verb == "die"):
         return "death"
+    if (verb == "write"):
+        return "writer"
     return verb
 
 
