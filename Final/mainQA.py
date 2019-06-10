@@ -263,7 +263,8 @@ def find_how_xyz_format(parsed, h, iteration):
     
 
     # Find x
-    xObject = h.head.head
+    xObject = h.head
+    print("xObject is ", xObject.lemma_)
     x = find_compound(parsed, h, xObject, True)  # Find anything that might need to be included in x
     if (iteration == 0):
         x = "cause of "+x
@@ -273,8 +274,9 @@ def find_how_xyz_format(parsed, h, iteration):
     # Find y
     y = ""
     for i in parsed:
-        if (i.head == xObject and i.dep_ == "nsubj"):
+        if (i.head == xObject and (i.dep_ == "nsubj" or i.dep_ == "nsubjpass")):
             yObject = i
+            print("yObject is ", yObject.lemma_)
             y = find_compound(parsed, h, yObject, True)  # Find anything that might need to be included in y
             break
 
@@ -665,8 +667,7 @@ def findAnswerCase_4(parse):
 
 
 def findFailCase(parsed):
-    for numh in range(len(parsed)-1, -1, -1):
-        h = parsed[numh]
+    for h in parsed:
         print (h.lemma_)
         # Find standard case: z is (the) x of y
         if (h.dep_ == "prep" and h.lemma_ == "of"):
@@ -682,7 +683,6 @@ def findFailCase(parsed):
         
         # Find questions using the possessive ("'s")
         if (h.tag_ == "POS"):
-            print("possessive!")
             li = find_possessive_xyz_format(parsed, h, False)
             x = li[0]
             y = li[1]
@@ -725,18 +725,20 @@ def findFailCase(parsed):
             answer = find_xyz_answer(x, y, z)
             if (not answer == "No answer was found"):
                 return answer
-    # Find questions starting with "how"
-    if (h.head.pos_ == "VERB" and h.lemma_ == "how"):
-        for i in range(0, 1, 2):
-            li = find_how_xyz_format(parsed, h, i)
-            x = li[0]
-            y = li[1]
-            z = li[2]
+        print("How question check", h.lemma_)
+        # Find questions starting with "how"
+        if (h.lemma_ == "how"):
+            print("How question")
+            for i in range(0, 1, 2):
+                li = find_how_xyz_format(parsed, h, i)
+                x = li[0]
+                y = li[1]
+                z = li[2]
 
-            print ("the %s of %s is %s" %(x, y, z))
-            answer = find_xyz_answer(x, y, z)
-            if (not answer == "No answer was found"):
-                return answer
+                print ("the %s of %s is %s" %(x, y, z))
+                answer = find_xyz_answer(x, y, z)
+                if (not answer == "No answer was found"):
+                    return answer
 
     return ["No answer was found"]
 
