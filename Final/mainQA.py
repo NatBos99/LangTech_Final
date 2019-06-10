@@ -422,7 +422,8 @@ def add_hardcoded_ids(ret, string, typ):
         ret.append("P527")  # Has part
     if (string == "real name" and typ == "property"):
         ret.append("P1477")  # Birth name
-
+    if (string == "album" and typ == "property"):
+        ret.append("P361") #Part of, add qualifier for "album"
 
 ########################################################################
 
