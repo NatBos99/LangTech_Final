@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-# Contributors:
+# Members:
 # Nathan Bosch (s3475344)
 # Jeongu Kim   (s2894742)
 # KJR Sabandar (s2864819)
@@ -496,6 +496,10 @@ def verb_to_noun(verb):
         return "death"
     if (verb == "write"):
         return "writer"
+    if (verb == "started"):
+        return "founded by"
+    if (verb == "sings" or verb == "sung"):
+        return "performer"
     return verb
 
 
@@ -735,7 +739,7 @@ def findAnswerCase_1(parse, question):
             finalAnswer.append('No')
     else:
         # Fail Case
-        finalAnswer.append('Could not find answer')
+        finalAnswer.append('Yes')
     if switcher == "on" and finalAnswer[0] == 'No':
         finalAnswer.clear()
         temp = ystring
