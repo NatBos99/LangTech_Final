@@ -22,8 +22,6 @@ permutation = [(0, 0), (1, 0), (2, 0), (0, 1), (1, 1), (2, 1), (0, 2), (1, 2),
 count_questions_properties = ['P31', 'P279', 'P361', 'P527', 'P2670']
 
 
-# TO BE REMOVED LATER!!!
-
 # Finds X of Y, returns string 'no results' if no results found
 def get_results(xstring, ystring):
     Xparams = {'action': 'wbsearchentities',
@@ -34,22 +32,23 @@ def get_results(xstring, ystring):
     Yparams = {'action': 'wbsearchentities',
                'language': 'en',
                'format': 'json'}
-
-    Yparams['search'] = ystring
-    Yjson = requests.get(api_url, Yparams).json()
-    Xparams['search'] = xstring
-    Xjson = requests.get(api_url, Xparams).json()
+    try:
+        Yparams['search'] = ystring
+        Yjson = requests.get(api_url, Yparams).json()
+        Xparams['search'] = xstring
+        Xjson = requests.get(api_url, Xparams).json()
 
     # loop through all the search results of X and Y
-    for result in Yjson['search']:
-        y = result['id']
-        for result in Xjson['search']:
-            x = result['id']
-            data = get_data(x, y)
-            if data['results']['bindings'] != []:
-                #print(data)
-                return data
-    return None
+        for result in Yjson['search']:
+            y = result['id']
+            for result in Xjson['search']:
+                x = result['id']
+                data = get_data(x, y)
+                if data['results']['bindings'] != []:
+                    return data
+        return ('no results')
+    except Exception:
+        return ('no results')
 
 
 # Extracts data from wikidata API
@@ -69,6 +68,8 @@ def get_data(x, y):
 # Extracts data and puts it into a list
 def extract_answer(data):
     mylist = []
+    if data == "no results":
+        return mylist
     for item in data['results']['bindings']:
         for var in item:
             mylist.append(item[var]['value'])
@@ -89,7 +90,6 @@ def get_id(string, idType, qualifier, qualIndex):
     qualifier[qualIndex] = add_hardcoded_ids(ret, string, idType)
     try:
         for i in json['search']:
-            #print("{}\t{}\t{}".format(i['id'], i['label'], i['description']))
             ret.append(i['id'])
         ret.append("")
         return ret
@@ -124,8 +124,24 @@ def get_xstring_data(ystring, zstring):
                 data = get_property_data(y, z)
                 if data['results']['bindings'] != []:
                     return data
+        return ('no results')
     except Exception:
         return ('no results')
+
+
+def get_property_data(y, z):
+    url4 = 'https://query.wikidata.org/sparql'
+    query = (
+            '''
+            SELECT  ?itemLabel
+            WHERE
+            {{
+                wd:{} ?itemLabel wd:{}.
+                SERVICE wikibase:label {{ bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }}
+            }}'''.format(y, z))
+
+    data = requests.get(url4, params={'query': query, 'format': 'json'}).json()
+    return data
 
 
 ########################################################################
@@ -156,6 +172,13 @@ def find_property(property, index):
 def check_be_z_the_x_of_y(parse):
     for w in parse:
         if w.dep_ == "pobj":
+            return True
+    return False
+
+
+def check_be_z_x_y(parse):
+    for w in parse:
+        if w.pos_ == "VERB" and w.dep_ != "ROOT":
             return True
     return False
 
@@ -229,8 +252,9 @@ def find_be_y_z(parse):
         if (w.dep_ == "appos" or w.dep_ == "attr" or w.dep_ == "acomp"):
             zstring = find_string(w, parse, zstring)
     data = get_xstring_data(ystring, zstring)
-    myList = extract_answer(data)
-    xstring = myList[0]
+    if data != "no results":
+        myList = extract_answer(data)
+        xstring = myList[0]
     return xstring, ystring, zstring
 
 
@@ -269,11 +293,8 @@ def highest_lowest_questions_get_x_and_y(parse):
 
 
 def find_how_xyz_format(parsed, h, iteration):
-
-
     # Find x
     xObject = h.head
-    #print("xObject is ", xObject.lemma_)
     x = find_compound(parsed, h, xObject, True)  # Find anything that might need to be included in x
     if (iteration == 0):
         x = "cause of "+x
@@ -285,7 +306,6 @@ def find_how_xyz_format(parsed, h, iteration):
     for i in parsed:
         if (i.head == xObject and (i.dep_ == "nsubj" or i.dep_ == "nsubjpass")):
             yObject = i
-            #print("yObject is ", yObject.lemma_)
             y = find_compound(parsed, h, yObject, True)  # Find anything that might need to be included in y
             break
 
@@ -316,6 +336,7 @@ def find_when_xyz_format(parsed, h):
 
     return [x, y, z]
 
+
 def find_where_xyz_format(parsed, h):
     # Where was y x(verb)?
 
@@ -336,6 +357,7 @@ def find_where_xyz_format(parsed, h):
     z = ""
 
     return [x, y, z]
+
 
 def find_possessive_xyz_format(parsed, h, propDate):
     # Find x
@@ -362,6 +384,7 @@ def find_possessive_xyz_format(parsed, h, propDate):
                 z = find_compound(parsed, h, zObject, False)  # Find anything that might need to be included in z
                 break
     return [x, y, z]
+
 
 def find_standard_xyz_format(parsed, h, typ):
     # Find x
@@ -393,20 +416,49 @@ def find_standard_xyz_format(parsed, h, typ):
 
 def yes_no_questions_get_x_y_z(parse, question):
     xstring, ystring, zstring = "", "", ""
+    switcher = "off"
 
-    # Do Z X Y? (Did B. B. King influence Jimi Hendrix?)
+    # Do Z X Y? (Did Elvis Presley influence the Beatles?)
     if parse[0].lemma_ == "do":
         xstring, ystring, zstring = find_do_z_x_y(parse)
+        switcher = "on"
+
+    # Be Z X Y? (Was Kendrick Lamar born in Compton?)
+    elif check_be_z_x_y(parse) is True:
+        xstring, ystring, zstring = find_be_z_x_y(parse)
+        switcher = "on"
 
     # Be Z the X of Y? (Is Donda West the mother of Kanye West)
     elif check_be_z_the_x_of_y(parse) is True:
         xstring, ystring, zstring = find_be_z_the_x_of_y(parse, question)
 
-    # Be Z Y? (Is Shakira a model, Is Michael Jackson alive)
+    # Be Z Y? (Is Shakira a model, Is Michael Jackson a male)
     else:
         xstring, ystring, zstring = find_be_y_z(parse)
 
-    return xstring, ystring, zstring
+    return xstring, ystring, zstring, switcher
+
+
+def find_be_z_x_y(parse):
+    xstring, ystring, zstring = "", "", ""
+    for w in parse:
+        # Find ystring
+        if w.dep_ == "nsubj":
+            ystring = find_string(w, parse, ystring)
+
+        # Find xstring
+        if w.dep_ != "ROOT" and w.pos_ == "VERB":
+            xstring = w.text
+            # Find preposition if any
+            for x in w.subtree:
+                if x.dep_ == "prep" and x.head.lemma_ == w.lemma_:
+                    xstring += " " + x.text
+        # Find zstring
+        if w.dep_ == "pobj" or w.dep_ == "dobj":
+            zstring = find_string(w, parse, zstring)
+
+    return (xstring, ystring, zstring)
+
 
 ########################################################################
 
@@ -424,8 +476,6 @@ def find_compound(parsed, h, x, mustBeNoun):
                 return compound + xText
             else:
                 return ""
-        #if (i.pos_ == "PRON"):
-            #abort = 1  # If we find, for example, "What x is the y of z", we treat "What x" as if "x" is not there. "What" would be removed under normal circumstances anyway
         if (i.dep_ == "compound" or i.dep_ == "amod" or (i.dep_ == "det" and (i.lemma_ == "what" or i.lemma_ == "which"))):
             compound += i.lemma_
             compound += " "
@@ -450,17 +500,16 @@ def verb_to_noun(verb):
 
 
 def add_hardcoded_ids(ret, string, typ):
-    #print(string)
     qualifier = ""
     if (string == "member" and typ == "property"):
         ret.append("P527")  # Has part
     if (string == "real name" and typ == "property"):
         ret.append("P1477")  # Birth name
     if (string == "album" and typ == "property"):
-        ret.append("P361") # Part of, add qualifier for "album"
+        ret.append("P361")  # Part of, add qualifier for "album"
         qualifier = string
-    if ((string == "drummer" or string == "guitarist" or string == "instrumentalist" or string == "singer" or string == "pianist") and typ == "property"):
-        ret.append("P527") # Has part, we are looking for members and use its function within the band or similar as a qualifier
+    if ((string == "drummer" or string == "guitarist" or string == "instrumentalist" or string == "singer" or string == "pianist" or string == "bassist") and typ == "property"):
+        ret.append("P527")  # Has part, we are looking for members and use its function within the band or similar as a qualifier
         qualifier = string
     return qualifier
 
@@ -598,7 +647,6 @@ def run_specific_query(query):
         data = data_request.json()
         return data['results']['bindings']
     except Exception:
-        #print("Failed to get data...")
         return None
 
 
@@ -617,8 +665,6 @@ def find_xyz_answer(x, y, z):
         qualifiers[2] = z.strip("what").strip("which").strip()
         zId = [""]
         z = ""
-    #print ("the %s of %s is %s" %(x, y, z))
-    #print("Qualifiers:", qualifiers)
     for numi, i in enumerate(xId):
         if (numi == depth):
             break
@@ -630,7 +676,6 @@ def find_xyz_answer(x, y, z):
                     break
                 if (not ((i == "" and j == "") or (i == "" and k == "") or (j == "" and k == ""))):
                     query = construct_query_xyz(i, j, k, qualifiers)
-                    #print(query)
                     if (not query == "Nothing"):
                         answer = []
                         returned_query = run_specific_query(query)
@@ -671,19 +716,13 @@ def isCase_3(parse):
     return False
 
 
-def isCase_4(parse):
-    return False
-
-
 ########################################################################
 
 def findAnswerCase_1(parse, question):
     finalAnswer = []
     candidateAnswer = []
-    xstring, ystring, zstring = yes_no_questions_get_x_y_z(parse, question)
-    #print("x: " + xstring)
-    #print("y: " + ystring)
-    #print("z: " + zstring)
+    swticher = "off"
+    xstring, ystring, zstring, switcher = yes_no_questions_get_x_y_z(parse, question)
     candidateAnswer.append(zstring)
     data = get_results(xstring, ystring)
     if data:
@@ -694,19 +733,34 @@ def findAnswerCase_1(parse, question):
             finalAnswer.append('Yes')
         else:
             finalAnswer.append('No')
-        return finalAnswer
     else:
         # Fail Case
         finalAnswer.append('Could not find answer')
-        return finalAnswer
+    if switcher == "on" and finalAnswer[0] == 'No':
+        finalAnswer.clear()
+        temp = ystring
+        ystring = zstring
+        zstring = temp
+        candidateAnswer.clear()
+        candidateAnswer.append(zstring)
+        data = get_results(xstring, ystring)
+
+        if data:
+            listAnswers = extract_answer(data)
+            if zstring in listAnswers:
+                finalAnswer.append('Yes')
+            elif candidateAnswer == extract_answer(data):
+                finalAnswer.append('Yes')
+            else:
+                finalAnswer.append('No')
+
+    return finalAnswer
 
 
 def findAnswerCase_2(parse, times=0):
     if (times >= 8):
-        #print("Exhausted 8 options, no answer found\n")
         return []
     x, y = highest_lowest_questions_get_x_and_y(parse)
-    #print("x: " + x + " y: " + y)
     times_tried = permutation[times]
     try:
         x_property = find_property(x, times_tried[0])
@@ -731,10 +785,8 @@ def findAnswerCase_2(parse, times=0):
 
 def findAnswerCase_3(parse, times=0):
     if (times >= 8):
-        #print("Exhausted 8 options, no answer found\n")
         return []
     x, y = count_questions_get_x_and_y(parse)
-    #print("x: " + x + "  y: " + y)
     times_tried = permutation[times]
     try:
         x_property = find_property(x, times_tried[0])
@@ -761,43 +813,36 @@ def findAnswerCase_3(parse, times=0):
 
 def findFailCase(parsed):
     for h in parsed:
-        # print (h.lemma_)
         # Find standard case: z is (the) x of y
         if (h.dep_ == "prep"):
-            #print("standard case")
             li = find_standard_xyz_format(parsed, h, "")
             x = li[0]
             y = li[1]
             z = li[2]
 
-            #print ("the %s of %s is %s" %(x, y, z))
             answer = find_xyz_answer(x, y, z)
             if (not answer == "No answer was found"):
                 return answer
 
         # Find questions using the possessive ("'s")
         if (h.tag_ == "POS"):
-            #print("Possessive case")
             li = find_possessive_xyz_format(parsed, h, "")
             x = li[0]
             y = li[1]
             z = li[2]
 
-            #print ("the %s of %s is %s" %(x, y, z))
             answer = find_xyz_answer(x, y, z)
             if (not answer == "No answer was found"):
                 return answer
 
         # Find questions starting with "where"
         if (h.head.pos_ == "VERB" and h.lemma_ == "where"):
-            #print("Where question")
             if (h.head.dep_ == "ROOT"):
                 li = find_standard_xyz_format(parsed, h, "place of ")
                 x = li[0]
                 y = li[1]
                 z = li[2]
 
-                #print ("the %s of %s is %s" %(x, y, z))
                 answer = find_xyz_answer(x, y, z)
                 if (not answer == "No answer was found"):
                     return answer
@@ -807,7 +852,6 @@ def findFailCase(parsed):
                 y = li[1]
                 z = li[2]
 
-                #print ("the %s of %s is %s" %(x, y, z))
                 answer = find_xyz_answer(x, y, z)
                 if (not answer == "No answer was found"):
                     return answer
@@ -817,21 +861,18 @@ def findFailCase(parsed):
             y = li[1]
             z = li[2]
 
-            #print ("the %s of %s is %s" %(x, y, z))
             answer = find_xyz_answer(x, y, z)
             if (not answer == "No answer was found"):
                 return answer
 
         # Find questions starting with "when"
         if (h.head.pos_ == "VERB" and h.lemma_ == "when"):
-            #print("When question")
             if (h.head.dep_ == "ROOT"):
                 li = find_standard_xyz_format(parsed, h, "time of ")
                 x = li[0]
                 y = li[1]
                 z = li[2]
 
-                #print ("the %s of %s is %s" %(x, y, z))
                 answer = find_xyz_answer(x, y, z)
                 if (not answer == "No answer was found"):
                     return answer
@@ -841,7 +882,6 @@ def findFailCase(parsed):
                 y = li[1]
                 z = li[2]
 
-                #print ("the %s of %s is %s" %(x, y, z))
                 answer = find_xyz_answer(x, y, z)
                 if (not answer == "No answer was found"):
                     return answer
@@ -851,21 +891,17 @@ def findFailCase(parsed):
             y = li[1]
             z = li[2]
 
-            #print ("the %s of %s is %s" %(x, y, z))
             answer = find_xyz_answer(x, y, z)
             if (not answer == "No answer was found"):
                 return answer
-        # print("How question check", h.lemma_)
         # Find questions starting with "how"
         if (h.lemma_ == "how"):
-            #print("How question")
             for i in range(0, 1, 2):
                 li = find_how_xyz_format(parsed, h, i)
                 x = li[0]
                 y = li[1]
                 z = li[2]
 
-                #print ("the %s of %s is %s" %(x, y, z))
                 answer = find_xyz_answer(x, y, z)
                 if (not answer == "No answer was found"):
                     return answer
@@ -888,14 +924,12 @@ def get_id_and_question(sentence):
         question = sentence
     return id, question.strip()
 
+
 def find_answer(sentence):
 
     id, question = get_id_and_question(sentence)
     print(str(id) + " " + question)
     parse = nlp(question)  # Remove number and tab from the question
-
-    #for w in parse:
-        #print("\t \t".join((w.text, w.lemma_, w.pos_, w.tag_, w.dep_,w.head.lemma_)))
 
     answer = []
     # Yes/No Questions
