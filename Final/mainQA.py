@@ -290,14 +290,14 @@ def find_when_xyz_format(parsed, h):
     # When was y x(verb)?
 
     # Find x
-    xObject = h.head
+    xObject = h.head.head
     x = find_compound(parsed, h, xObject, True)  # Find anything that might need to be included in x
     x = "date of "+x
 
     # Find y
     y = ""
     for i in parsed:
-        if (i.head == xObject and (i.dep_ == "nsubj" or i.dep_ == "nsubjpass")):
+        if (i.head.pos_ == "VERB" and (i.dep_ == "nsubj" or i.dep_ == "nsubjpass")):
             yObject = i
             y = find_compound(parsed, h, yObject, True)  # Find anything that might need to be included in y
             break
@@ -469,10 +469,7 @@ def gen_highest_lowest_query(x, x_id, y, y_id):
 
 
 def construct_query_xyz(x, y, z, qualifiers):
-    if (qualifiers[0] != ""):
-        qualString = "?answer ?thing wd:" + get_id(qualifiers[0], "object", [""], 0)[0] + " ."
-    else:
-        qualString = ""
+    qualString = ""
     if ((x == "" and y == "") or (x == "" and z == "") or (y == "" and z == "")):
         return "Nothing"
     propQuery = False
@@ -489,6 +486,8 @@ def construct_query_xyz(x, y, z, qualifiers):
 
     if (z == ""):
         z = "?answer"
+        if (not qualifiers[0] == ""):
+            qualString = "?answer ?thing wd:" + get_id(qualifiers[0], "object", [""], 0)[0] + " ."
     else:
         z = "wd:"+z
     if(propQuery):
@@ -684,7 +683,7 @@ def findFailCase(parsed):
     for h in parsed:
         print (h.lemma_)
         # Find standard case: z is (the) x of y
-        if (h.dep_ == "prep" and h.lemma_ == "of"):
+        if (h.dep_ == "prep"):
             li = find_standard_xyz_format(parsed, h, False)
             x = li[0]
             y = li[1]
@@ -709,6 +708,7 @@ def findFailCase(parsed):
         
         # Find questions starting with "when"
         if (h.head.pos_ == "VERB" and h.lemma_ == "when"):
+            print("When question")
             if (h.head.dep_ == "ROOT"):
                 li = find_standard_xyz_format(parsed, h, False)
                 x = li[0]
@@ -758,10 +758,18 @@ def findFailCase(parsed):
 
 
 ########################################################################
+def remove_number_and_tab(question):
+    q = question
+    for numi, i in enumerate(q):
+        if (not i.isdigit()):
+            q = q[numi:100000]
+            q = q.strip()
+            return q
+    return q
 
 def find_answer(question):
 
-    parse = nlp(question)
+    parse = nlp(remove_number_and_tab(question)) # Remove number and tab from the question
 
     for w in parse:
         print("\t \t".join((w.text, w.lemma_, w.pos_, w.tag_, w.dep_,w.head.lemma_)))
