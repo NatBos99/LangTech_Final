@@ -260,7 +260,7 @@ def highest_lowest_questions_get_x_and_y(parse):
 
 
 def find_how_xyz_format(parsed, h, iteration):
-    
+
 
     # Find x
     xObject = h.head
@@ -337,7 +337,7 @@ def find_possessive_xyz_format(parsed, h, propDate):
         x = find_compound(parsed, h, xObject, False)  # Find anything that might need to be included in x
         if(propDate):
             x = "date of" + x
-    
+
     # Find y
     yObject = h.head
     y = ""
@@ -602,7 +602,7 @@ def find_xyz_answer(x, y, z):
         qualifiers[2] = z.strip("what").strip("which").strip()
         zId = [""]
         z = ""
-    print ("the %s of %s is %s" %(x, y, z))
+    print ("the %s of %s is %s" % (x, y, z))
     print("Qualifiers:", qualifiers)
     for numi, i in enumerate(xId):
         if (numi == depth):
@@ -746,7 +746,7 @@ def findAnswerCase_4(parse):
 
 def findFailCase(parsed):
     for h in parsed:
-        #print (h.lemma_)
+        # print (h.lemma_)
         # Find standard case: z is (the) x of y
         if (h.dep_ == "prep"):
             li = find_standard_xyz_format(parsed, h, "")
@@ -758,7 +758,7 @@ def findFailCase(parsed):
             answer = find_xyz_answer(x, y, z)
             if (not answer == "No answer was found"):
                 return answer
-        
+
         # Find questions using the possessive ("'s")
         if (h.tag_ == "POS"):
             li = find_possessive_xyz_format(parsed, h, "")
@@ -766,11 +766,11 @@ def findFailCase(parsed):
             y = li[1]
             z = li[2]
 
-            print ("the %s of %s is %s" %(x, y, z))
+            print ("the %s of %s is %s" % (x, y, z))
             answer = find_xyz_answer(x, y, z)
             if (not answer == "No answer was found"):
                 return answer
-        
+
         # Find questions starting with "where"
         if (h.head.pos_ == "VERB" and h.lemma_ == "where"):
             print("Where question")
@@ -780,7 +780,7 @@ def findFailCase(parsed):
                 y = li[1]
                 z = li[2]
 
-                print ("the %s of %s is %s" %(x, y, z))
+                print ("the %s of %s is %s" % (x, y, z))
                 answer = find_xyz_answer(x, y, z)
                 if (not answer == "No answer was found"):
                     return answer
@@ -790,7 +790,7 @@ def findFailCase(parsed):
                 y = li[1]
                 z = li[2]
 
-                print ("the %s of %s is %s" %(x, y, z))
+                print ("the %s of %s is %s" % (x, y, z))
                 answer = find_xyz_answer(x, y, z)
                 if (not answer == "No answer was found"):
                     return answer
@@ -800,11 +800,11 @@ def findFailCase(parsed):
             y = li[1]
             z = li[2]
 
-            print ("the %s of %s is %s" %(x, y, z))
+            print ("the %s of %s is %s" % (x, y, z))
             answer = find_xyz_answer(x, y, z)
             if (not answer == "No answer was found"):
                 return answer
-        
+
         # Find questions starting with "when"
         if (h.head.pos_ == "VERB" and h.lemma_ == "when"):
             print("When question")
@@ -814,7 +814,7 @@ def findFailCase(parsed):
                 y = li[1]
                 z = li[2]
 
-                print ("the %s of %s is %s" %(x, y, z))
+                print ("the %s of %s is %s" % (x, y, z))
                 answer = find_xyz_answer(x, y, z)
                 if (not answer == "No answer was found"):
                     return answer
@@ -824,7 +824,7 @@ def findFailCase(parsed):
                 y = li[1]
                 z = li[2]
 
-                print ("the %s of %s is %s" %(x, y, z))
+                print ("the %s of %s is %s" % (x, y, z))
                 answer = find_xyz_answer(x, y, z)
                 if (not answer == "No answer was found"):
                     return answer
@@ -834,11 +834,11 @@ def findFailCase(parsed):
             y = li[1]
             z = li[2]
 
-            print ("the %s of %s is %s" %(x, y, z))
+            print ("the %s of %s is %s" % (x, y, z))
             answer = find_xyz_answer(x, y, z)
             if (not answer == "No answer was found"):
                 return answer
-        #print("How question check", h.lemma_)
+        # print("How question check", h.lemma_)
         # Find questions starting with "how"
         if (h.lemma_ == "how"):
             print("How question")
@@ -848,7 +848,7 @@ def findFailCase(parsed):
                 y = li[1]
                 z = li[2]
 
-                print ("the %s of %s is %s" %(x, y, z))
+                print ("the %s of %s is %s" % (x, y, z))
                 answer = find_xyz_answer(x, y, z)
                 if (not answer == "No answer was found"):
                     return answer
@@ -857,18 +857,26 @@ def findFailCase(parsed):
 
 
 ########################################################################
-def remove_number_and_tab(question):
-    q = question
-    for numi, i in enumerate(q):
-        if (not i.isdigit()):
-            q = q[numi:100000]
-            q = q.strip()
-            return q
-    return q
+def get_id_and_question(sentence):
+    id = 0
+    question = ""
+    for index, letter in enumerate(sentence):
+        if letter.isdigit():
+            id *= 10
+            id += int(letter)
+        elif letter == "\t":
+            question = sentence[index:]
+            break
+    if id == 0 or question == "":
+        question = sentence
+    return id, question.strip()
 
-def find_answer(question):
 
-    parse = nlp(remove_number_and_tab(question)) # Remove number and tab from the question
+def find_answer(sentence):
+
+    id, question = get_id_and_question(sentence)
+    print(str(id) + " " + question)
+    parse = nlp(question)  # Remove number and tab from the question
 
     for w in parse:
         print("\t \t".join((w.text, w.lemma_, w.pos_, w.tag_, w.dep_,w.head.lemma_)))
@@ -896,10 +904,33 @@ def find_answer(question):
 
     print_answer(answer)
 
+    return id, answer
+
 
 def main(argv):
-    for sentence in sys.stdin:
-        find_answer(sentence)
+    f = open("answers.txt", "w+")
+    if len(argv) > 1 and ".txt" in argv[1]:
+        file = argv[1]
+        r = open(file, "r")
+        for sentence in r:
+            id, answer = find_answer(sentence)
+            answer_string = ""
+            for i, a in enumerate(answer):
+                answer_string += str(a)
+                if i < len(answer) - 1:
+                    answer_string += "\t"
+            f.write("{id}\t".format(id=id) + answer_string + "\n")
+        r.close()
+    else:
+        for sentence in sys.stdin:
+            id, answer = find_answer(sentence)
+            answer_string = ""
+            for i, a in enumerate(answer):
+                answer_string += str(a)
+                if i < len(answer) - 1:
+                    answer_string += "\t"
+            f.write("{id}\t".format(id=id) + answer_string + "\n")
+    f.close()
 
 
 if __name__ == "__main__":
