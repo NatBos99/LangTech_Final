@@ -397,7 +397,7 @@ def find_compound(parsed, h, x, mustBeNoun):
                 return ""
         if (i.pos_ == "PRON"):
             abort = 1  # If we find, for example, "What x is the y of z", we treat "What x" as if "x" is not there. "What" would be removed under normal circumstances anyway
-        elif (i.dep_ == "compound" or i.dep_ == "amod"):
+        elif (i.dep_ == "compound" or i.dep_ == "amod" or (i.dep_ == "det" and (i.lemma_ == "what" or i.lemma_ == "which"))):
             compound += i.lemma_
             compound += " "
         elif (i.dep_ == "prep" and i.lemma_ == "of" and not i == h):
@@ -431,6 +431,7 @@ def add_hardcoded_ids(ret, string, typ):
         ret.append("P361") # Part of, add qualifier for "album"
         qualifier = string
     if ((string == "drummer" or string == "guitarist" or string == "instrumentalist" or string == "singer" or string == "pianist") and typ == "property"):
+        print("yes")
         ret.append("P527") # Has part, we are looking for members and use its function within the band or similar as a qualifier
         qualifier = string
     return qualifier
@@ -469,7 +470,7 @@ def gen_highest_lowest_query(x, x_id, y, y_id):
 
 
 def construct_query_xyz(x, y, z, qualifiers):
-    qualString = ""
+    qualString = ["", "", ""]
     if ((x == "" and y == "") or (x == "" and z == "") or (y == "" and z == "")):
         return "Nothing"
     propQuery = False
@@ -486,10 +487,38 @@ def construct_query_xyz(x, y, z, qualifiers):
 
     if (z == ""):
         z = "?answer"
-        if (not qualifiers[0] == ""):
-            qualString = "?answer ?thing wd:" + get_id(qualifiers[0], "object", [""], 0)[0] + " ."
     else:
         z = "wd:"+z
+    if (not qualifiers[0] == ""):
+            qualString[0] = z + " ?thing0 wd:" + get_id(qualifiers[0], "object", [""], 0)[0] + " ."
+            qualString[0] ='''  ?wut0 wdt:P279 wd:%s .
+                {
+                %s ?thing0 wd:%s .
+                }
+                UNION
+                {
+                %s ?thing0 ?wut0 .
+                }''' % (get_id(qualifiers[0], "object", [""], 0)[0], z, get_id(qualifiers[0], "object", [""], 0)[0], z)
+    if (not qualifiers[1] == ""):
+            qualString[1] = y + " ?thing1 wd:" + get_id(qualifiers[1], "object", [""], 0)[0] + " ."
+            qualString[1] ='''  ?wut1 wdt:P279 wd:%s .
+                {
+                %s ?thing1 wd:%s .
+                }
+                UNION
+                {
+                %s ?thing1 ?wut1 .
+                }''' % (get_id(qualifiers[1], "object", [""], 0)[0], y, get_id(qualifiers[1], "object", [""], 0)[0], y)
+    if (not qualifiers[2] == ""):
+            qualString[2] = z + " ?thing2 wd:" + get_id(qualifiers[2], "object", [""], 0)[0] + " ."
+            qualString[2] ='''  ?wut2 wdt:P279 wd:%s .
+                {
+                %s ?thing2 wd:%s .
+                }
+                UNION
+                {
+                %s ?thing2 ?wut2 .
+                }''' % (get_id(qualifiers[2], "object", [""], 0)[0], z, get_id(qualifiers[2], "object", [""], 0)[0], z)
     if(propQuery):
         query = '''
             SELECT DISTINCT ?propLabel
@@ -497,23 +526,27 @@ def construct_query_xyz(x, y, z, qualifiers):
                 hint:Query hint:optimizer "None" .
                 %s %s %s .
                 %s
+                %s
+                %s
                 ?prop wikibase:directClaim ?answer .
                 SERVICE wikibase:label {
                     bd:serviceParam wikibase:language "en" .
                 }
             }
-            ''' % (y, x, z, qualString)
+            ''' % (y, x, z, qualString[0], qualString[1], qualString[2])
     else:
         query = '''
             SELECT DISTINCT ?answerLabel
                 Where{
                 %s %s %s .
                 %s
+                %s
+                %s
                 SERVICE wikibase:label {
                     bd:serviceParam wikibase:language "en" .
                 }
             }
-            ''' % (y, x, z, qualString)
+            ''' % (y, x, z, qualString[0], qualString[1], qualString[2])
     return query
 
 
@@ -533,12 +566,22 @@ def run_specific_query(query):
 
 
 def find_xyz_answer(x, y, z):
+    print("XXXXXYYYYYZZZZZ")
     answer = ""
     depth = 5  # Increase for better chance of finding obscure answers, decrease for slightly better performance and bigger chance to find less obscure answers
     qualifiers = ["", "", ""]
     xId = get_id(x, "property", qualifiers, 0)
     yId = get_id(y, "object", qualifiers, 1)
+    if ("what" in y or "which" in y):
+        qualifiers[1] = y.strip("what").strip("which").strip()
+        yId = [""]
+        y = ""
     zId = get_id(z, "object", qualifiers, 2)
+    if ("what" in z or "which" in z):
+        qualifiers[2] = z.strip("what").strip("which").strip()
+        zId = [""]
+        z = ""
+    print ("the %s of %s is %s" %(x, y, z))
     print("Qualifiers:", qualifiers)
     for numi, i in enumerate(xId):
         if (numi == depth):
@@ -550,6 +593,7 @@ def find_xyz_answer(x, y, z):
                 if (numk == depth):
                     break
                 if (not ((i == "" and j == "") or (i == "" and k == "") or (j == "" and k == ""))):
+                    print("You got here at least")
                     query = construct_query_xyz(i, j, k, qualifiers)
                     print(query)
                     if (not query == "Nothing"):
@@ -681,7 +725,7 @@ def findAnswerCase_4(parse):
 
 def findFailCase(parsed):
     for h in parsed:
-        print (h.lemma_)
+        #print (h.lemma_)
         # Find standard case: z is (the) x of y
         if (h.dep_ == "prep"):
             li = find_standard_xyz_format(parsed, h, False)
@@ -739,7 +783,7 @@ def findFailCase(parsed):
             answer = find_xyz_answer(x, y, z)
             if (not answer == "No answer was found"):
                 return answer
-        print("How question check", h.lemma_)
+        #print("How question check", h.lemma_)
         # Find questions starting with "how"
         if (h.lemma_ == "how"):
             print("How question")
