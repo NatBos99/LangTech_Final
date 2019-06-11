@@ -67,7 +67,7 @@ def extract_answer(data):
     return mylist
 
 
-def get_id(string, idType):
+def get_id(string, idType, qualifier, qualIndex):
     params = {'action': 'wbsearchentities',
               'language': 'en',
               'format': 'json'
@@ -78,7 +78,7 @@ def get_id(string, idType):
     params['search'] = string.rstrip()
     json = requests.get(api_url, params).json()
     ret = []
-    add_hardcoded_ids(ret, string, idType)
+    qualifier[qualIndex] = add_hardcoded_ids(ret, string, idType)
     try:
         for i in json['search']:
             print("{}\t{}\t{}".format(i['id'], i['label'], i['description']))
@@ -422,12 +422,18 @@ def verb_to_noun(verb):
 
 def add_hardcoded_ids(ret, string, typ):
     print(string)
+    qualifier = ""
     if (string == "member" and typ == "property"):
         ret.append("P527")  # Has part
     if (string == "real name" and typ == "property"):
         ret.append("P1477")  # Birth name
     if (string == "album" and typ == "property"):
-        ret.append("P361") #Part of, add qualifier for "album"
+        ret.append("P361") # Part of, add qualifier for "album"
+        qualifier = string
+    if ((string == "drummer" or string == "guitarist" or string == "instrumentalist" or string == "singer" or string == "pianist") and typ == "property"):
+        ret.append("P527") # Has part, we are looking for members and use its function within the band or similar as a qualifier
+        qualifier = string
+    return qualifier
 
 ########################################################################
 
@@ -462,13 +468,17 @@ def gen_highest_lowest_query(x, x_id, y, y_id):
     return new_query
 
 
-def construct_query_xyz(x, y, z):
+def construct_query_xyz(x, y, z, qualifiers):
+    if (qualifiers[0] != ""):
+        qualString = "?answer ?thing wd:" + get_id(qualifiers[0], "object", [""], 0)[0] + " ."
+    else:
+        qualString = ""
     if ((x == "" and y == "") or (x == "" and z == "") or (y == "" and z == "")):
         return "Nothing"
-    propQuery = 0
+    propQuery = False
     if (x == ""):
         x = "?answer"
-        propQuery = 1
+        propQuery = True
     else:
         x = "wdt:"+x
 
@@ -487,22 +497,24 @@ def construct_query_xyz(x, y, z):
                 Where{
                 hint:Query hint:optimizer "None" .
                 %s %s %s .
+                %s
                 ?prop wikibase:directClaim ?answer .
                 SERVICE wikibase:label {
                     bd:serviceParam wikibase:language "en" .
                 }
             }
-            ''' % (y, x, z)
+            ''' % (y, x, z, qualString)
     else:
         query = '''
             SELECT DISTINCT ?answerLabel
                 Where{
                 %s %s %s .
+                %s
                 SERVICE wikibase:label {
                     bd:serviceParam wikibase:language "en" .
                 }
             }
-            ''' % (y, x, z)
+            ''' % (y, x, z, qualString)
     return query
 
 
@@ -524,9 +536,11 @@ def run_specific_query(query):
 def find_xyz_answer(x, y, z):
     answer = ""
     depth = 5  # Increase for better chance of finding obscure answers, decrease for slightly better performance and bigger chance to find less obscure answers
-    xId = get_id(x, "property")
-    yId = get_id(y, "object")
-    zId = get_id(z, "object")
+    qualifiers = ["", "", ""]
+    xId = get_id(x, "property", qualifiers, 0)
+    yId = get_id(y, "object", qualifiers, 1)
+    zId = get_id(z, "object", qualifiers, 2)
+    print("Qualifiers:", qualifiers)
     for numi, i in enumerate(xId):
         if (numi == depth):
             break
@@ -537,7 +551,7 @@ def find_xyz_answer(x, y, z):
                 if (numk == depth):
                     break
                 if (not ((i == "" and j == "") or (i == "" and k == "") or (j == "" and k == ""))):
-                    query = construct_query_xyz(i, j, k)
+                    query = construct_query_xyz(i, j, k, qualifiers)
                     print(query)
                     if (not query == "Nothing"):
                         answer = []
