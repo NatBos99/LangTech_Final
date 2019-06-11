@@ -307,6 +307,28 @@ def find_when_xyz_format(parsed, h):
 
     return [x, y, z]
 
+def find_where_xyz_format(parsed, h):
+    # Where was y x(verb)?
+
+    # Find x
+    xObject = h.head.head
+    x = find_compound(parsed, h, xObject, True)  # Find anything that might need to be included in x
+    x = "place of "+x
+
+    # Find y
+    y = ""
+    for i in parsed:
+        if (i.head.pos_ == "VERB" and (i.dep_ == "nsubj" or i.dep_ == "nsubjpass")):
+            yObject = i
+            y = find_compound(parsed, h, yObject, True)  # Find anything that might need to be included in y
+            break
+
+    # z cannot be present in these kinds of sentences
+    z = ""
+
+    return [x, y, z]
+
+
 def find_possessive_xyz_format(parsed, h, propDate):
     # Find x
     xObject = h.head.head
@@ -333,14 +355,13 @@ def find_possessive_xyz_format(parsed, h, propDate):
                 break
     return [x, y, z]
 
-def find_standard_xyz_format(parsed, h, propDate):
+def find_standard_xyz_format(parsed, h, typ):
     # Find x
     xObject = h.head
     x = ""
     if (not xObject.pos_ == "PRON"):
         x = find_compound(parsed, h, xObject, False)  # Find anything that might need to be included in x
-        if(propDate):
-            x = "date of" + x
+        x = typ + x
 
     # Find y
     y = ""
@@ -728,7 +749,7 @@ def findFailCase(parsed):
         #print (h.lemma_)
         # Find standard case: z is (the) x of y
         if (h.dep_ == "prep"):
-            li = find_standard_xyz_format(parsed, h, False)
+            li = find_standard_xyz_format(parsed, h, "")
             x = li[0]
             y = li[1]
             z = li[2]
@@ -740,7 +761,41 @@ def findFailCase(parsed):
         
         # Find questions using the possessive ("'s")
         if (h.tag_ == "POS"):
-            li = find_possessive_xyz_format(parsed, h, False)
+            li = find_possessive_xyz_format(parsed, h, "")
+            x = li[0]
+            y = li[1]
+            z = li[2]
+
+            print ("the %s of %s is %s" %(x, y, z))
+            answer = find_xyz_answer(x, y, z)
+            if (not answer == "No answer was found"):
+                return answer
+        
+        # Find questions starting with "where"
+        if (h.head.pos_ == "VERB" and h.lemma_ == "where"):
+            print("Where question")
+            if (h.head.dep_ == "ROOT"):
+                li = find_standard_xyz_format(parsed, h, "place of ")
+                x = li[0]
+                y = li[1]
+                z = li[2]
+
+                print ("the %s of %s is %s" %(x, y, z))
+                answer = find_xyz_answer(x, y, z)
+                if (not answer == "No answer was found"):
+                    return answer
+
+                li = find_standard_xyz_format(parsed, h, "")
+                x = li[0]
+                y = li[1]
+                z = li[2]
+
+                print ("the %s of %s is %s" %(x, y, z))
+                answer = find_xyz_answer(x, y, z)
+                if (not answer == "No answer was found"):
+                    return answer
+
+            li = find_where_xyz_format(parsed, h)
             x = li[0]
             y = li[1]
             z = li[2]
@@ -754,7 +809,7 @@ def findFailCase(parsed):
         if (h.head.pos_ == "VERB" and h.lemma_ == "when"):
             print("When question")
             if (h.head.dep_ == "ROOT"):
-                li = find_standard_xyz_format(parsed, h, False)
+                li = find_standard_xyz_format(parsed, h, "time of ")
                 x = li[0]
                 y = li[1]
                 z = li[2]
@@ -764,7 +819,7 @@ def findFailCase(parsed):
                 if (not answer == "No answer was found"):
                     return answer
 
-                li = find_standard_xyz_format(parsed, h, True)
+                li = find_standard_xyz_format(parsed, h, "")
                 x = li[0]
                 y = li[1]
                 z = li[2]
