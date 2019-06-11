@@ -1,4 +1,12 @@
 #!/usr/bin/python3
+
+# Contributors:
+# Nathan Bosch (s3475344)
+# Jeongu Kim   (s2894742)
+# KJR Sabandar (s2864819)
+# Daan Windt   (s3486429)
+
+
 import sys
 import requests
 import re
@@ -151,6 +159,7 @@ def check_be_z_the_x_of_y(parse):
             return True
     return False
 
+
 def find_string(w, parse, string):
     for x in parse:
         if x.dep_ == "compound" and x.head.lemma_ == w.lemma_ :
@@ -235,7 +244,7 @@ def count_questions_get_x_and_y(parse):
             x = token.lemma_
             if token.dep_ == "compound":
                 x += "_" + token.head.lemma_
-        elif x != "" and (token.tag_ == "NN" or token.tag_ == "NNS"):
+        elif x != "" and (token.tag_ == "NN" or token.tag_ == "NNS" or token.tag_ == "NNP"):
             y = token.lemma_
             if token.dep_ == "compound":
                 y += "_" + token.head.lemma_
@@ -457,13 +466,12 @@ def add_hardcoded_ids(ret, string, typ):
         qualifier = string
     return qualifier
 
+
 ########################################################################
 
 # Count query generation, simply plugs in values for x and y
 def gen_count_query(x, x_id, y, y_id, property):
     x = x.replace(" ", "")
-    y = y.replace(" ", "")
-    y = y.replace(".", "")
     new_query = ((
         """
         SELECT ?%s
@@ -474,8 +482,18 @@ def gen_count_query(x, x_id, y, y_id, property):
           pq:P1114 ?%s ].
           SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE]". }
         }
-        """)
-                 % (x, y_id, property, property, x_id, x))
+        """) % (x, y_id, property, property, x_id, x))
+    return new_query
+
+
+def gen_other_count_query(x_id, y_id):
+    new_query = ((
+        """
+        SELECT (COUNT(*) AS ?item) WHERE {
+        wd:%s wdt:%s ?item.
+        SERVICE wikibase:label { bd:serviceParam
+        wikibase:language "[AUTO_LANGUAGE],en". } }
+        """) % (y_id, x_id))
     return new_query
 
 
@@ -696,7 +714,9 @@ def findAnswerCase_2(parse, times=0):
     times_tried = permutation[times]
     try:
         x_property = find_property(x, times_tried[0])
+        print(x_property['id'])
         y_element = find_entity(y, times_tried[1])
+        print(y_element['id'])
     except Exception:
         return findAnswerCase_2(parse, times+1)
     sparql_query = gen_highest_lowest_query(x, x_property['id'], y, y_element['id'])
@@ -721,7 +741,7 @@ def findAnswerCase_3(parse, times=0):
     print("x: " + x + "  y: " + y)
     times_tried = permutation[times]
     try:
-        x_property = find_entity(x, times_tried[0])
+        x_property = find_property(x, times_tried[0])
         y_element = find_entity(y, times_tried[1])
     except Exception:
         return findAnswerCase_3(parse, times+1)
@@ -730,6 +750,9 @@ def findAnswerCase_3(parse, times=0):
         query_result = run_specific_query(sparql_query)
         if query_result != []:
             break
+    if query_result == []:
+        sparql_query = gen_other_count_query(x_property['id'], y_element['id'])
+        query_result = run_specific_query(sparql_query)
     if query_result == []:
         return findAnswerCase_3(parse, times+1)
     else:
